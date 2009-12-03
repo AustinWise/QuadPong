@@ -1,0 +1,55 @@
+; --------------------------------------------------------------------
+; - Generic PicoBlaze/Nexys Starter File for Mediatronix PicoBlaze
+; - and KCPSM3 assembler. See the notes listed below. 
+; --------------------------------------------------------------------
+; --------------------------------------------------------------------
+; - Assembler Directives
+; --------------------------------------------------------------------
+
+; --------------------------------------------------------------------
+; This line generates the instruction memory VHDL file
+; UNCOMMENT it for the Mediatronix Assembler
+; --------------------------------------------------------------
+; VHDL      "ROM_blank.vhd", "prog_rom.vhd""prog_rom"
+; --------------------------------------------------------------------
+; --------------------------------------------------------------------
+; These are for Mediatronix I/O port addressing
+; UNCOMMENT these lines after "importing" to Mediatronix IDE
+; ---------------------------------------------------------------
+; LEDS                DSOUT     $0C    ; LEDs
+; SSEG_DISP           DSOUT     $08    ; 7-segment displays
+; SSEG_DISP_EN        DSOUT     $04    ; 7-segment display enables
+;
+; SWITCHES            DSIN      $24    ; switches
+; BUTTONS             DSIN      $20    ; buttons
+; --------------------------------------------------------------------
+
+; --------------------------------------------------------------------
+; These are for the KCPSM3 assembler I/O port addressing
+; COMMENT these lines after "importing" to Mediatronix IDE; 
+; Leave them here if you use the KCPSM assembler. 
+; ---------------------------------------------------------------
+CONSTANT    SWITCHES,  24        ; in: switches address = port 24 (input)
+CONSTANT    BUTTONS,   20        ; in: button address: = port 20
+
+CONSTANT    SSEG_DISP, 08        ; out: seven-segment display address = port 08
+CONSTANT    SSEG_EN,   04        ; out: display enable address = port 04
+CONSTANT    LEDS,      0C        ; out: LED address = port 0C 
+; --------------------------------------------------------------------
+
+
+            LOAD     s0, FF
+	    OUTPUT   s0, SSEG_DISP
+	    
+main:       INPUT    s0, SWITCHES
+            OUTPUT   s0, LEDS
+            JUMP     main        ; endless loop
+
+
+
+
+
+
+
+
+
