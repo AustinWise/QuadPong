@@ -160,14 +160,6 @@ begin
 	          trigger => interrupt_db,
 	            pulse => interrupt_pulse);
 
-
---	debouncer:  db_fsm 
---	port map (
---			clk => clk, 
---			reset => '0',
---			sw => interrupt,
---			db => interrupt_db
---		);
 		
 	--keyboard
    ps2_rxtx_unit: ps2_rxtx
@@ -179,11 +171,11 @@ begin
 	process(read_strobe)
 	begin
 		if (read_strobe = '1') then 
-			if (port_id = X"20") then 
+			if (port_id = X"20") then  -- buttons mapped to 20
 				in_port <= ("00000" & buttons);
-			elsif (port_id = X"24") then
+			elsif (port_id = X"24") then -- swithes mapped to 24
 				in_port <= switches;
-			elsif (port_id = X"28") then
+			elsif (port_id = X"28") then -- keyboard mapped to 28
 				in_port <= key_data;
 			end if; 
  	   else

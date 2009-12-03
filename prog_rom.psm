@@ -1,14 +1,10 @@
 ; --------------------------------------------------------------------
-; - Generic PicoBlaze/Nexys Starter File for Mediatronix PicoBlaze
-; - and KCPSM3 assembler. See the notes listed below. 
+; - QuadPong game
 ; --------------------------------------------------------------------
+
 ; --------------------------------------------------------------------
-; - Assembler Directives
+; KCPSM3 assembler I/O port addressing
 ; --------------------------------------------------------------------
-; These are for the KCPSM3 assembler I/O port addressing
-; COMMENT these lines after "importing" to Mediatronix IDE; 
-; Leave them here if you use the KCPSM assembler. 
-; ---------------------------------------------------------------
 CONSTANT    SWITCHES,  24        ; in: switches address = port 24 (input)
 CONSTANT    BUTTONS,   20        ; in: button address: = port 20
 CONSTANT    KEYBOARD,  28        ; in: keyboard
@@ -22,22 +18,26 @@ CONSTANT    SSEG_EN,   04        ; out: display enable address = port 04
 CONSTANT    LEDS,      0C        ; out: LED address = port 0C 
 ; --------------------------------------------------------------------
 
+; Keyboard scan codes
 CONSTANT KEY_RELEASED,  f0
 CONSTANT KEY_LEFT,      6b
 CONSTANT KEY_RIGHT,     74
 CONSTANT KEY_UP,        75
 CONSTANT KEY_DOWN,      72
 
+; size of the screen
 CONSTANT BOUNDS_Y, 1E
 CONSTANT BOUNDS_X, 28
 
+; size of the paddles
 CONSTANT PADDLE_WIDTH, 03
 
+; colors
 CONSTANT COLOR_GREEN, 1C
 CONSTANT COLOR_RED,   E0
 CONSTANT COLOR_BLUE,  03
 
-;memory locations
+;ISR register backup memory locations
 CONSTANT MEM_ISR_BACKUP0,      10
 CONSTANT MEM_ISR_BACKUP1,      11
 CONSTANT MEM_ISR_BACKUP2,      12
@@ -55,16 +55,23 @@ CONSTANT MEM_ISR_BACKUPD,      1D
 CONSTANT MEM_ISR_BACKUPE,      1E
 CONSTANT MEM_ISR_BACKUPF,      1F
 
+; mem locations for clock divider counter
 CONSTANT MEM_BLINK_COUNT1, 00
 CONSTANT MEM_BLINK_COUNT2, 01
 CONSTANT MEM_BLINK_COUNT3, 02
 
+; mem location for color of of paddles.
+; only used when they are blinking
 CONSTANT MEM_COLOR, 03
 
+; mem locations for paddle possitions
 CONSTANT MEM_XPADDLE, 20
 CONSTANT MEM_YPADDLE, 21
+
+; mem location that indicates the next key should be ignored
 CONSTANT MEM_IGNORE_KEY, 22
 
+; mem locations for storing ball state
 CONSTANT MEM_BALL_X, 23
 CONSTANT MEM_BALL_Y, 24
 CONSTANT MEM_BALL_VEL_X, 25
@@ -147,21 +154,23 @@ main:
             JUMP Z, main_reset_game
             jump main_continue_game
 main_reset_game:
+            ;reset game and draw the border red
             call reset_game
             load s6, COLOR_RED
             call draw_border
             jump main_end
 
 main_continue_game:
-
+            
+            ;bonce the ball off the paddle
             call bounce_ball
 
-            ;get color for border
+            ;if switch 0 is set, draw border as color
             INPUT s0, SWITCHES
             and s0, 01
             jump z, black_border
 
-            ;draw border
+            ;draw border as color
             fetch s6, MEM_COLOR
             call draw_border
 
@@ -270,7 +279,8 @@ bounce_ball:
 
 
 ; --------------------------------------------------------------------
-; function bounce_ball_impel - checks a ball to a paddle
+; function bounce_ball_impel - checks a ball to a paddle, and toggles
+;                              is velocity if it is
 ; --------------------------------------------------------------------
 ;         s0 = paddle_index (along some axis A)
 ;         sA = ball index (along some axis A)
@@ -314,6 +324,7 @@ get_top_paddle_index:
 ; returns: s0 = index of bottom paddle
 ; uses:    s1
 ; --------------------------------------------------------------------
+;paddle is flipped if switch 1 is set
 get_bottom_paddle_index:
             input s0, SWITCHES
             and s0, 02
@@ -340,6 +351,7 @@ get_left_paddle_index:
 ; --------------------------------------------------------------------
 ; returns: s0 = index of right paddle
 ; --------------------------------------------------------------------
+;paddle is flipped if switch 1 is set
 get_right_paddle_index:
             input s0, SWITCHES
             and s0, 02
@@ -394,7 +406,7 @@ draw_border:
            
            RETURN
 			  
-isr:
+isr: ;ISR happens when a key is pressed
         ;backup registers
         STORE s0, MEM_ISR_BACKUP0
         STORE s1, MEM_ISR_BACKUP1
@@ -412,7 +424,7 @@ isr:
         STORE sD, MEM_ISR_BACKUPD
         STORE sE, MEM_ISR_BACKUPE
         STORE sF, MEM_ISR_BACKUPF
-        
+        ;clear registers
         LOAD s0, 00
         LOAD s1, 00
         LOAD s2, 00
@@ -430,7 +442,7 @@ isr:
         LOAD sE, 00
         LOAD sF, 00
         
-        
+        ;get the keyboard scan code
         INPUT s0, KEYBOARD
         FETCH s1, MEM_XPADDLE
         FETCH s2, MEM_YPADDLE
@@ -440,11 +452,11 @@ isr:
         COMPARE s3, ff
         JUMP NZ, isr_ignore_key
         
-        ;clear the ignore key bit
+        ;clear the ignore key bit and skip key porcessing
         load s3, 00
         jump end_isr
         
-isr_ignore_key:
+isr_ignore_key: ;see if key up scan code is sent
         COMPARE s0, KEY_RELEASED
         JUMP NZ, isr_try_left
         
@@ -452,7 +464,7 @@ isr_ignore_key:
         load s3, ff
         jump end_isr
         
-isr_try_left:
+isr_try_left: ;see if the left key is down
         COMPARE s0, KEY_LEFT
         JUMP NZ, isr_try_right
         
@@ -460,7 +472,7 @@ isr_try_left:
         SUB s1, 01        
         jump end_isr
         
-isr_try_right:
+isr_try_right: ;see if right key is down
         COMPARE s0, KEY_RIGHT
         JUMP NZ, isr_try_up
         
@@ -468,7 +480,7 @@ isr_try_right:
         ADD s1, 01
         jump end_isr
         
-isr_try_up:
+isr_try_up: ;see if up key is down
         COMPARE s0, KEY_UP
         JUMP NZ, isr_try_down
         
@@ -476,7 +488,7 @@ isr_try_up:
         SUB s2, 01
         jump end_isr
         
-isr_try_down:
+isr_try_down: ;see if down key is down
         COMPARE s0, KEY_DOWN
         JUMP NZ, end_isr
         
@@ -509,11 +521,12 @@ isr_upper_bound_y:
         SUB s2, 01
 isr_bound_done:
 
+	;store the updated paddle locations
         STORE s1, MEM_XPADDLE
         STORE s2, MEM_YPADDLE
         STORE s3, MEM_IGNORE_KEY
         
-        OUTPUT s0, LEDS
+        OUTPUT s0, LEDS ;set the LEDs to the scan code
 
         ;restore registers
         FETCH s0, MEM_ISR_BACKUP0
@@ -629,6 +642,6 @@ exit_box:       load      s4, sF
                 return                
 
 
-address 3ff
+address 3ff  ;interrupt
 					jump isr
 
